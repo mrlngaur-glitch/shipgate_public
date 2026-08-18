@@ -1,0 +1,32 @@
+# shipgate/router/model_tiers.yaml — tier -> model mapping.
+#
+# report §16.1, the anti-obsolescence doctrine: "Routing references tiers (frontier /
+# mid / cheap / local), never model names. A new model is a config-table row, not
+# code." This file is that config table.
+#
+# NOT part of the frozen shipfile interface (shipgate/shipfile/schema.py's
+# MODEL_TIERS). A shipfile only ever names a tier; this table is what turns a tier
+# into an actual model at routing time. Editing this file — adding a model, changing
+# the preference order within a tier — is never a shipfile schema change and never
+# breaks a shipfile anyone has already written. That decoupling is the entire point.
+#
+# The router itself (matching a tier to a live model, escalation with re-anchoring,
+# quota-aware open-model fallback) is F4 (report §8.2) and is NOT built by this file's
+# existence — Session 004 Gate A review was explicit: "do not build routing itself...
+# just make sure the frozen format can't be the thing that blocks it." This is
+# preparatory data only, so F4 never has to touch shipfile.yaml to add a model.
+#
+# Illustrative roster below, not final — F4 owns the real one when the engine is
+# built. Within a tier, entries are preference order (first tried first); an empty
+# list means no default is chosen yet.
+
+version: 1
+
+tiers:
+  frontier:
+    - claude-opus-5
+  mid:
+    - claude-sonnet-5
+  cheap:
+    - claude-haiku-4-5-20251001
+  local: []  # open-model / local inference targets land with OmniRoute, F4

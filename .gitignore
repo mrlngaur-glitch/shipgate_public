@@ -1,0 +1,31 @@
+# Environment
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Ledger databases and local state — never committed.
+# The ledger contains real transcript-derived data; committing it would leak
+# exactly what secret redaction exists to protect.
+*.db
+*.sqlite
+*.sqlite3
+.shipgate/
+
+# Analysis output derived from the founder's private transcript corpus
+docs/measured_baseline_raw/
+*.jsonl
+
+# Test / tooling artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# OS / editor
+Thumbs.db
+.DS_Store
+.idea/
+.vscode/

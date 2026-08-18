@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install (pinned, hash-verified)
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements.lock
+          pip install -e . --no-deps
+
+      # ---------------------------------------------------------------
+      # Anti-vacuous gate.
+      # ShipGate's flagship rule is that a check observing nothing never
+      # renders green. If our OWN suite could pass on zero collected tests,
+      # we would fail our own litmus before shipping a single verdict.
+      # This is the first thing a hostile reader will check.
+      # ---------------------------------------------------------------
+      - name: Assert the test suite is not vacuous
+        run: |
+          COLLECTED=$(python -m pytest --collect-only -q 2>/dev/null | grep -c '::' || true)
+          echo "Collected tests: $COLLECTED (minimum: $MIN_TESTS)"
+          if [ "$COLLECTED" -lt "$MIN_TESTS" ]; then
+            echo "::error::VACUOUS SUITE — collected $COLLECTED tests, minimum is $MIN_TESTS."
+            echo "A green build that observed nothing is not a green build."
+            exit 1
+          fi
+        env:
+          # Raise this as the suite grows. It must never be lowered to make CI pass —
+          # lowering it is a silently moved goalpost.
+          #
+          # Running total, each addition tied to the real test file and the real gap
+          # it closed, verified via `pytest --collect-only -q | grep -c '::'` locally
+          # each time:
+          #   328 baseline
+          # + 3  tests/unit/test_checkers.py — undecodable-byte decode-fix regression
+          #      tests (+2) and the command_succeeds unhandled-thread-exception
+          #      hygiene test (+1)
+          # + 2  tests/unit/test_pytest_reporter.py — an A/B/C repro proving
+          #      collect_test_count/run_pytest survive a conftest that prints a byte
+          #      the host locale can't decode
+          # + 5  tests/unit/test_gate_orchestrator.py — the full A/B/C control against
+          #      evaluate_gate directly (+3), plus the fail-closed dispatch wrapper
+          #      proven independently of decoding (+2)
+          # + 1  tests/integration/test_hooks_e2e.py — the same A/B/C control C,
+          #      through a real `python -m shipgate.hooks.stop` subprocess
+          # = 339 — a regression in the frozen verdict path, fixed and demonstrated live
+          # + 5  tests/integration/test_hooks_e2e.py — the Stop hook's outer fail-open
+          #      catch also swallowed a broken ledger; escalation from
+          #      silent-but-recorded to a loud block, tested against real
+          #      corrupted/occupied/ACL-denied .shipgate state
+          # + 5  tests/unit/test_hooks.py — the marker helpers and the escalation
+          #      sequence exercised directly
+          # = 349
+          # + 16 tests/unit/test_report.py — the Ship Report's data layer: real
+          #      red/green evaluations, the blast-radius count and ledger receipt, the
+          #      gate-unavailable marker, --verify pass/tamper/growth
+          # + 14 tests/unit/test_cli_report.py — status/report exit codes, --verify
+          #      wiring, and a corrupt-ledger-crashed-into-a-traceback gap found live
+          #      while demonstrating the build
+          # + 1  tests/unit/test_hooks.py — the end-to-end secret-as-a-dict-key
+          #      redaction test
+          # = 380
+          # + 2  tests/unit/test_report.py — verify_receipt catching a real tampered
+          #      `events` row, not just `verdicts`, plus the "names all three tables"
+          #      wording check
+          # + 5  net new, tests/unit/test_cli_report.py — 6 added (an events-tamper
+          #      repro against report and status, the --verify events-naming check,
+          #      the healthy-chain wording check, and the --verify-defaults-on /
+          #      --no-verify split); 1 removed (the old verify-is-opt-in test,
+          #      superseded by the defaults-on pair)
+          # = 387 — the current count, closing a launch-blocking gap before this
+          #   project's own completion gate was allowed to certify itself.
+          MIN_TESTS: 387
+
+      - name: Tests
+        run: python -m pytest
+
+      # ---------------------------------------------------------------
+      # Core purity.
+      # Converts "the core has no Claude-Code-specific imports" from an
+      # intention into a hard rule — the guarantee that lets a new coding
+      # agent get its own adapter built quickly, without touching the core.
+      # ---------------------------------------------------------------
+      - name: Core purity contract
+        run: lint-imports
+
+      - name: Lint
+        run: ruff check .
+
+      # ---------------------------------------------------------------
+      # Dependency audit — "pinned + audited deps".
+      # Pinning alone (requirements.lock) says these exact versions were chosen
+      # deliberately; it says nothing about whether a chosen version has a KNOWN
+      # vulnerability disclosed after it was pinned. This closes that gap, continuously.
+      #
+      # pip-audit is installed into a REAL, SEPARATE venv, not this job's shared
+      # Python — deliberately NOT added to requirements.lock / pyproject.toml's own
+      # dependency list — every dependency addition is treated as a
+      # supply-chain decision, and pip-audit pulls in ~20 transitive packages of its
+      # own (an HTTP client, a CycloneDX SBOM library, etc.) that this project's actual
+      # shipped surface has no other reason to carry.
+      #
+      # This step used to install pip-audit into this job's own shared Python,
+      # commented as "scoped to this one CI step's own throwaway environment" — false:
+      # requirements.lock and requirements-audit.lock share 6 packages, and one of them
+      # (Pygments: 2.20.0 vs 2.21.0) disagreed, so the old single-environment install put
+      # the project venv itself one version off its own lock the moment this step ran —
+      # the exact single-package-drift failure the whole hash-pinning effort exists to
+      # prevent, reintroduced by the fix meant to close the last gap in it. `python -m venv
+      # "$RUNNER_TEMP/auditenv"` below is the actual fix — not aligning the one
+      # colliding pin, which would leave the other 5 shared packages free to diverge
+      # on the next version bump. A comment describing a control is a claim, and claims
+      # get verified — this comment was rewritten to describe what the YAML actually
+      # does, found by that same standard applied to this file.
+      #
+      # Hash-pinned in requirements-audit.lock, its own file: this step runs with
+      # GITHUB_TOKEN in scope, installing from an artifact nothing verified, and it is
+      # the one check whose whole job is to find a hidden problem — exactly where you'd
+      # want one hidden. requirements-audit.lock's own header explains why it's kept
+      # separate from requirements.lock rather than merged into it.
+      - name: Audit dependencies
+        run: |
+          python -m venv "$RUNNER_TEMP/auditenv"
+          "$RUNNER_TEMP/auditenv/bin/pip" install --require-hashes -r requirements-audit.lock
+          "$RUNNER_TEMP/auditenv/bin/pip-audit" -r requirements.lock

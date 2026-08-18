@@ -1,0 +1,96 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shipgate"
+version = "0.0.1.dev0"
+description = "The independent completion gate for AI coding agents — the agent doesn't get to grade its own homework."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Laxmi Narayan" }]
+
+# Dependency posture: minimal surface, pinned in requirements.lock.
+# Every addition here is a supply-chain decision, not a convenience decision.
+#
+# Upper bounds, added 2026-08-17: a floor alone lets a user's resolver take any
+# future version, including one this project has never run against — the exact drift README.md
+# documents happening once already (Pygments 2.21.0 vs. this project's own tested 2.20.0). Every
+# bound below is picked per package, not a blanket "next major":
+#   - pyyaml, jsonschema, pytest, pytest-cov, import-linter: all past 1.0 and follow ordinary
+#     semver (a major bump signals a breaking change). Bounded to exclude the next major above
+#     the version this project has actually run this session (see requirements.lock), so a user
+#     gets the whole tested major line, never an untested one.
+#   - typer, ruff: still pre-1.0. Under SemVer's own rule, a 0.x minor bump is not guaranteed
+#     backwards-compatible — bounded to exclude the next MINOR above what's tested, not the next
+#     major, which for a 0.x package would mean no bound at all.
+#   - rich: past 1.0 but requirements.lock is already two majors ahead of this floor (13 -> 15)
+#     with zero incident — bounded one major above the tested version for the same headroom as
+#     the other 1.0+ packages, not tightened further just because it moved fast so far.
+# None of these are hard pins ("=="): ShipGate installs into a user's own project alongside their
+# own tool versions, and a hard pin would make it uninstallable next to anything on a different
+# rich/typer — a worse failure than drift. requirements.lock is what stays hard-pinned (and, as
+# of this same pass, hash-pinned) for the dev/CI environment this project's own tests run in.
+dependencies = [
+    "pyyaml>=6.0.2,<7",        # shipfile.yaml / charter.yaml parsing
+    "jsonschema>=4.23,<5",     # shipfile v0.1 schema validation
+    "typer>=0.15,<0.28",       # CLI: init | analyze | doctor | report | status | evolve
+    "rich>=13.9,<16",          # Ship Report terminal rendering
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<10",
+    "pytest-cov>=6.0,<8",
+    "import-linter>=2.1,<3",  # enforces core purity below — not a soft rule
+    "ruff>=0.8,<0.17",
+]
+
+[project.scripts]
+shipgate = "shipgate.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["shipgate*", "reporters*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# No -q here: it stacks with the -q in CI's --collect-only call and degrades output to
+# per-file counts instead of node IDs, which would silently break the anti-vacuous
+# assertion. A gate defeated by its own config is exactly the failure class we ship against.
+addopts = "--strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+# B008 ("function call in argument default") is typer's own documented idiom for
+# declaring CLI options (`param: T = typer.Option(default, "--flag", ...)`) — the call
+# builds an immutable option-metadata object typer's decorator inspects at import time,
+# not a mutable default shared across calls, which is what B008 exists to catch. Scoped
+# to cli.py only, not a project-wide ignore.
+[tool.ruff.lint.per-file-ignores]
+"shipgate/cli.py" = ["B008"]
+
+# ---------------------------------------------------------------------------
+# Core purity contract.
+# The gate/ledger core must contain zero Claude-Code-specific imports so that a
+# new agent harness is an adapter, not a rewrite. Target: any new harness in
+# under 2 weeks. This is enforced in CI, because soft rules decay — the exact
+# problem this project exists to solve, applied to the product's own build.
+# ---------------------------------------------------------------------------
+[tool.importlinter]
+root_package = "shipgate"
+
+[[tool.importlinter.contracts]]
+name = "Core is harness-agnostic (no Claude Code imports in ledger/gate/verdicts/shipfile)"
+type = "forbidden"
+source_modules = [
+    "shipgate.ledger",
+    "shipgate.gate",
+    "shipgate.verdicts",
+    "shipgate.shipfile",
+]
+forbidden_modules = [
+    "shipgate.hooks",
+]

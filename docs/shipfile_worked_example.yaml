@@ -1,0 +1,108 @@
+# ShipGate's own shipfile — the project gates itself under the rules it ships.
+# This is Task 1.4's worked example for Gate A.
+# Plain-language explanation of every block: docs/shipfile_worked_example.md
+#
+# Revised for Gate A (three founder-required changes, all applied here):
+#   1. Model *tiers*, never model names — see task_classes and routing.
+#   2. gate_policy / session_policy numbers are now bounded, not just their names locked.
+#   3. Every done_conditions entry is an object with an id — including the EARS one.
+
+# shipfile_version is optional (absent means "0.1") -- stated explicitly here because
+# this worked example is the idiom every user copies. It's what lets a future v0.2
+# file fail with "upgrade ShipGate" on an old parser instead of a wrong "unrecognized
+# block" error naming this field itself.
+shipfile_version: "0.1"
+
+task_classes:
+  schema_change:
+    risk_tier: high
+    starting_model_tier: frontier
+    max_tokens: 200000
+    gate_strictness: strict
+  feature:
+    risk_tier: medium
+    starting_model_tier: mid
+    max_tokens: 100000
+    gate_strictness: strict
+  docs:
+    risk_tier: low
+    starting_model_tier: cheap
+    max_tokens: 50000
+    gate_strictness: advisory
+
+done_conditions:
+  - id: suite-passes
+    type: tests_pass
+    command: python -m pytest
+    description: The full test suite actually runs and passes -- not "should pass."
+
+  - id: security-policy-exists
+    type: file_exists
+    path: SECURITY.md
+    description: A published security policy exists -- a real supply-chain-relevant project must not lose it silently.
+
+  - id: no-todo-left-behind
+    type: forbidden_pattern_absent
+    pattern: "TODO"
+    paths: ["shipgate/"]
+    description: "A TODO is never an acceptable substitute for an actual decision."
+
+  - id: lint-clean
+    type: command_succeeds
+    command: ruff check .
+    description: The linter actually runs clean, not "should be clean."
+
+  - id: gate-fired
+    type: emission_traced
+    marker: SHIPGATE_GATE_FIRED
+    task_class: feature
+    description: The gate hook actually fired at Stop -- not just "wired up."
+
+  - id: hook-installed
+    type: runtime_evidence
+    method: log_marker
+    detail: "PreToolUse hook wrote at least one ledger row this session"
+    verify_after: "24h"
+    description: Confirms the hook is really running, re-checked the next day in case it silently stopped.
+
+  - id: all-call-sites-migrated
+    type: inventory_complete
+    grep_pattern: "from shipgate.ledger.writer import"
+    required_dispositions: ["updated", "intentionally-unchanged"]
+    description: Every import of the old writer path has a stated disposition -- "3 of 5" never counts as done.
+
+  - id: vacuous-never-green
+    ears: "WHEN a checker observes zero test results THE SYSTEM SHALL render unverified-vacuous, never a pass"
+    description: >
+      Plain-language statement of intent, not yet machine-checked -- still addressable
+      by id like every other condition here, unlike a bare EARS string would be.
+
+routing:
+  default_model_tier: mid
+  escalation:
+    - condition: schema_change
+      escalate_to: frontier
+
+budgets:
+  # max_cost_per_session_usd is enforced against a DERIVED cost estimate (tokens x the
+  # versioned price table, Task 1.6), never an observed/billed cost -- there is no
+  # observed-cost field anywhere in the corpus (docs/jsonl_format_notes.md Q2). Treat
+  # this number as "estimated," not "measured," the same way every rendered cost in a
+  # Ship Report is labelled.
+  max_tokens_per_session: 2000000
+  max_cost_per_session_usd: 15
+
+context_policy:
+  cache_ttl_preference: 1h
+  memoization: true
+
+intent:
+  summary: >
+    Ship the independent completion gate for AI coding agents as free OSS, without
+    ever rendering a verdict the evidence doesn't support.
+
+gate_policy:
+  max_retries: 3
+
+session_policy:
+  max_high_risk_changes_per_session: 3

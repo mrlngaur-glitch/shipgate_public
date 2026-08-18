@@ -7,6 +7,9 @@ Ship Report entry for this session pastes the `pytest -v` output for this file a
 evidence.
 """
 
+import importlib.util
+from pathlib import Path
+
 import pytest
 
 from shipgate.verdicts import (
@@ -22,6 +25,7 @@ from shipgate.verdicts import (
     is_legal_transition,
     is_legal_verified_tier_transition,
     legal_next_verdicts,
+    taxonomy,  # test-only: source file location for the patched-copy test
     validate_transition,
     validate_verified_tier_transition,
 )
@@ -252,6 +256,41 @@ def test_taxonomy_integrity_error_is_a_runtime_error_not_an_assertion():
     exception type is the raise-based one they use, not AssertionError."""
     assert issubclass(TaxonomyIntegrityError, RuntimeError)
     assert not issubclass(TaxonomyIntegrityError, AssertionError)
+
+
+def test_all_verdicts_out_of_sync_with_the_enum_is_refused_not_silently_missed(tmp_path):
+    """Category C finding, this repository's own systematic integrity pass
+    (`PHASE_PLAN.md`): the frozen-taxonomy guard used to check `ALL_VERDICTS` against
+    itself only (length + duplicates) — a `Verdict` member added without updating
+    `ALL_VERDICTS` to match imported cleanly, no error, confirmed live before this fix.
+
+    This test ATTEMPTS THE ACTUAL VIOLATION — patches a real copy of `taxonomy.py` to
+    add a genuine 8th enum member while leaving `ALL_VERDICTS` untouched, then imports
+    that copy fresh and asserts the import itself refuses — rather than asserting
+    `ALL_VERDICTS` against a second hardcoded literal set, which is exactly what let
+    this hide from `test_all_seven_verdict_strings_match_report_5_4` above for as long
+    as it did: a second hand-maintained copy checked against a third doesn't catch
+    either one drifting from the real enum."""
+    source = Path(taxonomy.__file__).read_text(encoding="utf-8")
+    marker = '    TARGET_UNREACHABLE = "target-unreachable"'
+    assert marker in source  # sanity: the patch point still exists in the real file
+    patched = source.replace(
+        marker,
+        marker + '\n\n    #: Test-only smuggled member -- ALL_VERDICTS deliberately NOT updated.\n'
+        '    SMUGGLED_EIGHTH = "smuggled-eighth"',
+        1,
+    )
+    patched_path = tmp_path / "taxonomy_smuggled_eighth.py"
+    patched_path.write_text(patched, encoding="utf-8")
+
+    # The patched copy is exec'd as its own, separate module -- its `TaxonomyIntegrityError`
+    # is a distinct class object from the one imported at the top of this file, even though
+    # it's defined by identical source, so this asserts on the shared RuntimeError base
+    # (real base class of both) and the message, not `isinstance` against the original class.
+    spec = importlib.util.spec_from_file_location("taxonomy_smuggled_eighth", patched_path)
+    module = importlib.util.module_from_spec(spec)
+    with pytest.raises(RuntimeError, match="out of sync"):
+        spec.loader.exec_module(module)
 
 
 # --- Legal transitions succeed ---------------------------------------------------

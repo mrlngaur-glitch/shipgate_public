@@ -82,8 +82,39 @@ class ProjectRootUnresolvableError(HookInputError):
 def read_hook_input(stdin_text: str | None) -> dict[str, Any]:
     """Parse the hook's stdin JSON. `stdin_text=None` reads real stdin (production);
     tests pass a literal string so no subprocess/stdin plumbing is needed to exercise
-    the parsing and ledger-writing logic."""
-    text = stdin_text if stdin_text is not None else sys.stdin.read()
+    the parsing and ledger-writing logic.
+
+    **Founder finding, P24 (`PHASE_PLAN.md`): the production path used to read stdin as
+    TEXT (`sys.stdin.read()`), whose decoder — and, critically, its ERROR HANDLER — is
+    environment-controlled, not this module's choice. `pretooluse.py`'s own docstring
+    promised "never raises... not an uncaught traceback," and a same-environment repro
+    of that promise held (this environment's `sys.stdin.errors` happens to be
+    `surrogateescape`, which degrades undecodable bytes instead of raising) — but the
+    founder's own cross-environment matrix proved the promise false wherever the host's
+    stdin decoder is `strict` (confirmed live: `PYTHONIOENCODING=cp932`, plain `ascii`):
+    a real hook payload containing nothing more exotic than a non-ASCII byte (a Japanese
+    path segment, an em dash) raised an uncaught `UnicodeDecodeError` before
+    `except HookInputError` could ever see it — the gate did not fire, silently, and an
+    environment variable was enough to disable it. **One environment proving a claim
+    doesn't fail is not the same as the claim holding — see the standing rule this
+    finding produced, P24: a "never raises" claim must name the environment it was
+    tested in, or be tested across the axis that could falsify it.** Fixed here, at the
+    one shared reader every hook entrypoint calls, not per-hook: bytes are read
+    explicitly (`sys.stdin.buffer.read()`) and decoded as UTF-8 under an explicit,
+    stated error policy (`errors="strict"`) — the decoder is now this function's choice,
+    never the host machine's. A decode failure is treated exactly like a JSON parse
+    failure (a hook payload that isn't valid UTF-8 isn't valid JSON either — both are
+    "not usable input," both take the existing honest-skip `HookInputError` path, no new
+    branch invented for it).
+    """
+    if stdin_text is not None:
+        text = stdin_text
+    else:
+        raw = sys.stdin.buffer.read()
+        try:
+            text = raw.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+            raise HookInputError(f"hook input is not valid UTF-8: {exc}") from exc
     if not text.strip():
         raise HookInputError("empty hook input on stdin")
     try:

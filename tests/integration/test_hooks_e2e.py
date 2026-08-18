@@ -479,6 +479,71 @@ def test_stop_retry_cap_release_reason_survives_cp437(tmp_path: Path):
     assert second.stdout == ""  # exhausted -> allowed, not blocked
 
 
+# --- P24 (PHASE_PLAN.md): read_hook_input's old sys.stdin.read() decoded stdin using
+# the HOST's own environment-controlled text decoder -- strict on some hosts,
+# surrogateescape on others. On a strict-decoder host, a real payload containing nothing
+# more exotic than a non-ASCII byte raised an uncaught UnicodeDecodeError before
+# `except HookInputError` could ever see it: the gate did not fire, silently, and an
+# environment variable alone was enough to disable it. The tests above (cp932, cp437)
+# only ever proved the OUTPUT side (ensure_utf8_streams) safe; none of them put a
+# non-ASCII byte in the INPUT payload, which is why this held undetected. These tests
+# assert the gate still actually BLOCKS under the two hosts the founder's own
+# cross-environment matrix confirmed as uncaught-crash cases -- not merely that no
+# traceback appears. ------------------------------------------------------------------
+
+
+def test_stop_blocks_correctly_under_cp932_when_payload_contains_non_ascii_bytes(tmp_path: Path):
+    _real_shipfile(tmp_path, "exit 1", max_retries=3)
+    payload = {
+        "session_id": "p24-cp932-sess",
+        "cwd": str(tmp_path),
+        "tool_input": {"command": "echo 日本語テスト — em dash too"},
+    }
+    result = _run_hook_with_encoding("shipgate.hooks.stop", payload, tmp_path, python_io_encoding="cp932")
+    assert result.returncode == 0, result.stderr
+    assert "UnicodeDecodeError" not in result.stderr
+    decision = json.loads(result.stdout)
+    assert decision["decision"] == "block"
+
+
+def test_stop_blocks_correctly_under_ascii_when_payload_contains_non_ascii_bytes(tmp_path: Path):
+    """`ascii` is the narrowest possible host decoder -- any byte above 0x7F fails it.
+    The other uncaught-crash host in the founder's own matrix."""
+    _real_shipfile(tmp_path, "exit 1", max_retries=3)
+    payload = {
+        "session_id": "p24-ascii-sess",
+        "cwd": str(tmp_path),
+        "tool_input": {"command": "em dash test —"},
+    }
+    result = _run_hook_with_encoding("shipgate.hooks.stop", payload, tmp_path, python_io_encoding="ascii")
+    assert result.returncode == 0, result.stderr
+    assert "UnicodeDecodeError" not in result.stderr
+    decision = json.loads(result.stdout)
+    assert decision["decision"] == "block"
+
+
+def test_stop_genuinely_malformed_utf8_bytes_on_real_stdin_are_refused_not_crashed(tmp_path: Path):
+    """Distinct from the two tests above: those send valid UTF-8 bytes that a narrow
+    HOST decoder can't read (the fix should decode them fine). This sends bytes that
+    are not valid UTF-8 under any decoder -- a lone continuation byte -- proving the
+    stated error policy actually fires and takes the honest-skip HookInputError path,
+    real subprocess, real raw stdin bytes, not the `stdin_text=` string override every
+    other test in this suite uses."""
+    result = subprocess.run(
+        [sys.executable, "-m", "shipgate.hooks.stop"],
+        input=b'{"session_id": "p24-badbytes", "cwd": "\x80\x81 not valid utf-8"}',
+        cwd=tmp_path,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    stderr = result.stderr.decode("utf-8", errors="replace")
+    assert "UnicodeDecodeError" not in stderr  # not an uncaught traceback
+    assert "not valid UTF-8" in stderr
+    assert "skipping, not blocking" in stderr
+    assert not (tmp_path / ".shipgate").exists()  # honest-skip, nothing written
+
+
 # --- Finding 6 / P12: the Stop hook's outer fail-open catch also swallowed
 # a broken ledger -- the thing that fails is also the thing that would record it. Real,
 # broken filesystem state, not mocked -- the same standard as every prior finding. -------

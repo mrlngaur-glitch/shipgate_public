@@ -614,10 +614,22 @@ def check_runtime_evidence(
 def check_command_succeeds(
     condition: dict[str, Any], project_root: Path, timeout: float = DEFAULT_CHECKER_TIMEOUT_SECONDS
 ) -> CheckResult:
-    """`command` runs via `shell=True` — the shipfile is trusted project-owner input,
-    the same trust class as a Makefile target or a CI workflow's `run:` line, not
-    untrusted remote input; a shell-syntax command (pipes, `&&`) is the whole point of
-    letting an author write an arbitrary command here."""
+    """`command` runs via `shell=True`. The shipfile is owner-authored by convention,
+    but by construction it is writable by the gated agent itself — `shipfile.yaml` is a
+    file in the project tree like any other, not a channel with its own permission
+    check. `PARKING_LOT.md`'s canonical trust-boundary enumeration names this directly
+    (member 6): an agent that edits a `command_succeeds` condition can have this
+    checker run arbitrary shell at gate-evaluation time, outside Claude Code's own
+    per-command permission prompt.
+
+    `shell=True` is a deliberate, accepted design choice here, not an oversight, for
+    two stated reasons: (1) a shell-syntax command (pipes, `&&`) is the whole point of
+    letting an author write an arbitrary command here, and (2) the gated agent already
+    has a Bash tool and gains no capability it didn't already have in the normal case —
+    this checker adds a second path to the same place, not a new destination. What this
+    docstring no longer claims, because the record doesn't support it: that shipfile
+    content is a different, more-trusted class of input than untrusted remote input. It
+    isn't. It is accepted exposure, consciously named, not verified-safe input."""
     condition_id = condition["id"]
     command = condition["command"]
     try:

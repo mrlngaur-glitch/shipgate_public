@@ -6,6 +6,14 @@
 #   1. Model *tiers*, never model names — see task_classes and routing.
 #   2. gate_policy / session_policy numbers are now bounded, not just their names locked.
 #   3. Every done_conditions entry is an object with an id — including the EARS one.
+#
+# Not every condition below is dispatchable by shipgate.gate.evaluate_gate yet:
+# inventory_complete (needs an external claimed_items list), emission_traced (no
+# checker built), and the ears-only entry are excluded from the gate's green/red
+# decision, honestly, not silently passed — see shipgate/gate/orchestrator.py. This
+# example is kept identical to the live shipfile.yaml at the repo root (same eight
+# conditions, same ids) precisely so this disclosure has to be read the same way —
+# see that file for the condition-by-condition currently-dispatchable list.
 
 # shipfile_version is optional (absent means "0.1") -- stated explicitly here because
 # this worked example is the idiom every user copies. It's what lets a future v0.2

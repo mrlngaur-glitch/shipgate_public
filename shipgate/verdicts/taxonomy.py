@@ -75,8 +75,15 @@ class EvidenceTier(str, Enum):
     RUNTIME_VERIFIED = "runtime-verified"
 
 
-#: Every verdict class, in the fixed canonical order. Used by tests and
-#: by the transition table to assert nothing was left out and nothing extra crept in.
+#: Every verdict class, in the fixed canonical order. **Correction (Category C finding,
+#: this repository's own systematic integrity pass, `PHASE_PLAN.md`): this tuple does
+#: NOT itself assert that nothing was left out or crept in — a length/duplicate check
+#: on `ALL_VERDICTS` alone can only catch `ALL_VERDICTS` disagreeing with itself; it
+#: cannot catch a member added to `Verdict` without this tuple being updated to match.
+#: Confirmed live before the fix below existed: an 8th `Verdict` member, `ALL_VERDICTS`
+#: left untouched, imported cleanly, no error.** The guard immediately below is what
+#: actually asserts completeness — checked against `Verdict` itself, not against this
+#: tuple's own shape.
 ALL_VERDICTS: tuple[Verdict, ...] = (
     Verdict.UNVERIFIED,
     Verdict.VERIFIED,
@@ -98,6 +105,19 @@ class TaxonomyIntegrityError(RuntimeError):
     """
 
 
+#: Checked first, before the length/duplicate checks below, so this is the error that
+#: wins when both would fire (e.g. a Verdict member added with ALL_VERDICTS untouched is
+#: both "out of sync" and, incidentally, "not 7 long" in the direction that matters) —
+#: this is the guard that actually protects the frozen taxonomy; the length/duplicate
+#: checks below only protect ALL_VERDICTS against disagreeing with itself.
+if set(ALL_VERDICTS) != set(Verdict):
+    missing_from_all_verdicts = sorted(v.value for v in set(Verdict) - set(ALL_VERDICTS))
+    extra_in_all_verdicts = sorted(v.value for v in set(ALL_VERDICTS) - set(Verdict))
+    raise TaxonomyIntegrityError(
+        "ALL_VERDICTS is out of sync with the Verdict enum. "
+        f"In Verdict but missing from ALL_VERDICTS: {missing_from_all_verdicts}. "
+        f"In ALL_VERDICTS but not a real Verdict member: {extra_in_all_verdicts}."
+    )
 if len(ALL_VERDICTS) != 7:
     raise TaxonomyIntegrityError(
         f"the verdict taxonomy is frozen at exactly 7 classes; "

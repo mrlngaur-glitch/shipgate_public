@@ -26,9 +26,14 @@ with a confusing "unrecognized block" error pointing at the wrong thing. With it
 same file fails with "upgrade ShipGate" — the actual problem, named correctly, the first
 time this situation can ever come up.
 
-**Nothing in this file is checked against real code yet.** This phase only teaches
-ShipGate to *read* a shipfile and catch a broken one. Actually running these checks
-against your project is the next phase.
+**As of Gate A (Session 004), when this document was frozen, nothing described here was
+checked against real code yet** — that phase only taught ShipGate to *read* a shipfile
+and catch a broken one. That has since changed: some of the eight condition types below
+now have a real, working checker that runs against an actual project — see "Not every
+condition in this example currently decides ShipGate's own gate verdict," further down,
+for which ones. The live `shipfile.yaml` at the repo root stays the current, updated-as-
+it-changes source of truth for that split; the section below states it in prose so it
+doesn't have to be re-derived from that file's own comments.
 
 ---
 
@@ -73,6 +78,20 @@ below). Seven structured types exist, and the worked example uses all seven:
 | `emission_traced` | A specific signal actually fired — not "should have fired" |
 | `runtime_evidence` | Something was actually observed running — a log line, an endpoint, a database row |
 | `inventory_complete` | *Every* match of a search has a stated outcome — "3 of 5 fixed" is never accepted as done |
+
+**Not every condition in this example currently decides ShipGate's own gate verdict.**
+This document explains what each condition *type* means; it's a separate question
+whether ShipGate has a working checker for that type yet. As of this writing, five of
+the eight conditions in the live example (`suite-passes`, `security-policy-exists`,
+`no-todo-left-behind`, `lint-clean`, `hook-installed`) are dispatched by a real checker
+and mechanically decide green or red. Three are not, honestly excluded rather than
+silently treated as passing: `gate-fired` (`emission_traced` — no checker built yet),
+`all-call-sites-migrated` (`inventory_complete` — needs an external claimed-items list
+this project doesn't currently supply), and `vacuous-never-green` (the `ears`-only
+entry below, which is a plain-language statement of intent, not yet machine-checked).
+The live `shipfile.yaml` at the repo root states this directly in its own header
+comment; it applies equally here, since this example carries the identical eight
+conditions.
 
 One entry in the example carries an `ears` field instead of one of the seven structured
 types:

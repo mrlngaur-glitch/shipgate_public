@@ -18,6 +18,7 @@ session, and the no-network-call proof live in
 import json
 import sqlite3
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -135,6 +136,77 @@ def test_missing_required_field_exits_zero_and_writes_nothing(tmp_path, module):
 def test_json_array_instead_of_object_exits_zero_not_crash(tmp_path, module):
     exit_code = module.run("[1, 2, 3]")
     assert exit_code == 0
+
+
+# --- Gate C blocker, founder finding this session: a hook must never create a project
+# root it didn't find -- the old open_project_ledger trusted the payload's cwd
+# absolutely. Reproduced live before this fix: an unresolvable cwd made it silently
+# build a whole new directory tree wherever cwd pointed and write a real ledger there,
+# while the real project got no .shipgate/ at all -- both exit code and stdout AND
+# stderr all said nothing was wrong. See shipgate/hooks/_common.py's
+# ProjectRootUnresolvableError docstring for the full reproduction. -----------------------
+
+
+def _unresolvable_cwd_payload(module, bogus_cwd, session_id="sess-1"):
+    if module is stop:
+        return json.dumps({"session_id": session_id, "cwd": bogus_cwd, "hook_event_name": "Stop"})
+    event_name = "PreToolUse" if module is pretooluse else "PostToolUse"
+    return json.dumps(
+        {
+            "session_id": session_id,
+            "cwd": bogus_cwd,
+            "hook_event_name": event_name,
+            "permission_mode": "default",
+            "tool_name": "Bash",
+            "tool_input": {"command": "echo hi"},
+            "tool_use_id": "tu-1",
+        }
+    )
+
+
+@pytest.mark.parametrize("module", _ENTRYPOINTS)
+def test_unresolvable_cwd_creates_no_directory_and_fails_open_loudly(tmp_path, module, capsys):
+    """Requirement (e): a non-existent-cwd regression test on each of the three hooks,
+    asserting BOTH that no directory is created AND that stderr is non-empty."""
+    bogus_cwd = str(tmp_path / "does" / "not" / "exist" / "at" / "all")
+    assert not Path(bogus_cwd).exists()
+
+    exit_code = module.run(_unresolvable_cwd_payload(module, bogus_cwd))
+
+    assert exit_code == 0  # (b) still fails open on the DECISION -- the loop-breaker rule stands
+    assert not Path(bogus_cwd).exists()  # (a) never creates a project root it didn't find
+    err = capsys.readouterr().err
+    assert err.strip() != ""  # (b) never SILENTLY -- this is the regression itself
+    assert "did not run" in err
+
+    # the real project directory the test harness controls also gets nothing -- the hook
+    # has no way to know tmp_path was the "real" project once the payload lies about cwd;
+    # this confirms nothing was written ANYWHERE, not that it self-corrected to the right place.
+    assert not (tmp_path / ".shipgate").exists()
+
+
+def test_unresolvable_cwd_that_is_a_file_not_a_directory_is_also_refused(tmp_path, capsys):
+    """Path.is_dir() also catches the case where cwd resolves to something that already
+    exists but isn't a directory (a plain file) -- also not a valid project root,
+    refused the same way, not waved through because something is technically there."""
+    not_a_dir = tmp_path / "actually_a_file.txt"
+    not_a_dir.write_text("not a directory", encoding="utf-8")
+    exit_code = stop.run(json.dumps({"session_id": "sess-1", "cwd": str(not_a_dir), "hook_event_name": "Stop"}))
+    assert exit_code == 0
+    err = capsys.readouterr().err
+    assert "did not run" in err
+
+
+def test_open_project_ledger_raises_directly_without_touching_disk(tmp_path):
+    """Root-cause coverage, isolated from any one hook's wrapping: the fix lives in
+    shipgate.hooks._common.open_project_ledger itself, so it must be provably correct
+    there directly, not only observable through whichever hook happens to call it."""
+    from shipgate.hooks._common import ProjectRootUnresolvableError, open_project_ledger
+
+    bogus_cwd = str(tmp_path / "never" / "created")
+    with pytest.raises(ProjectRootUnresolvableError, match="does not exist"):
+        open_project_ledger(bogus_cwd)
+    assert not Path(bogus_cwd).exists()
 
 
 # --- secrets already redact through the existing pipeline -------------------------------

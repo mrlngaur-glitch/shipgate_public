@@ -87,7 +87,16 @@ jobs:
           #      superseded by the defaults-on pair)
           # = 387 — the current count, closing a launch-blocking gap before this
           #   project's own completion gate was allowed to certify itself.
-          MIN_TESTS: 387
+          # + 5  tests/unit/test_hooks.py — the unresolvable-cwd Gate C blocker: a
+          #      parametrized no-directory-created + non-empty-stderr regression across
+          #      all three hooks (+3), the cwd-is-a-file-not-a-directory edge case (+1),
+          #      and open_project_ledger's own ProjectRootUnresolvableError raised
+          #      directly, isolated from any one hook's wrapping (+1)
+          # + 1  tests/unit/test_cli_declare_task_class.py — requirement (c): the
+          #      NoSessionRecordedError message names the unresolvable-cwd possibility
+          #      honestly instead of asserting hooks simply haven't fired yet
+          # = 393 — the current count
+          MIN_TESTS: 393
 
       - name: Tests
         run: python -m pytest

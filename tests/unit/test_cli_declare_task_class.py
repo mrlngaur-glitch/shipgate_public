@@ -87,6 +87,23 @@ def test_no_session_recorded_raises_a_specific_named_error(tmp_path: Path):
         current_session_id(writer, tmp_path)
 
 
+def test_no_session_recorded_message_names_the_unresolvable_cwd_possibility(tmp_path: Path):
+    """Requirement (c): 'no session yet' and 'the gate could not run here' must not
+    collapse into one falsely-confident message. This code cannot positively detect an
+    unresolvable-cwd refusal (nothing durable gets written near project_root when cwd
+    never resolved -- see ProjectRootUnresolvableError's docstring), so the honest fix is
+    naming the ambiguity rather than asserting "hooks just haven't fired yet" as fact."""
+    with open_project_ledger(tmp_path) as writer:
+        try:
+            current_session_id(writer, tmp_path)
+            pytest.fail("expected NoSessionRecordedError")
+        except NoSessionRecordedError as exc:
+            message = str(exc)
+            assert "cannot tell you which" in message
+            assert "didn't resolve to this directory" in message
+            assert "the gate did not run for this event" in message
+
+
 def test_current_session_id_is_the_most_recently_recorded_session(tmp_path: Path):
     _write_shipfile(tmp_path)
     _fire_real_pretooluse_hook(tmp_path, "session-A")

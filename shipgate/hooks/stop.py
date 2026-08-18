@@ -113,6 +113,22 @@ that might resolve itself next turn is report §2.2's "a gate that blocks wrongl
 launch kills the product," self-inflicted); doing nothing (rejected — this is the status
 quo Finding 6 reports, and task 3.4's Ship Report is the only surface that could ever say
 "the gate did not run this session," which today it cannot).
+
+**Founder finding, a Gate C blocker, this session: the gate trusted `cwd` absolutely too.**
+`open_project_ledger`'s old `mkdir(parents=True, exist_ok=True)` never checked whether
+`cwd` already existed — reproduced live: an unresolvable `cwd` made it silently build a
+whole new directory tree wherever `cwd` pointed and write a real ledger there, while the
+actual project got no `.shipgate/` at all, and every hook exited 0 with empty stdout AND
+empty stderr. Same trust-boundary family as the shipfile-integrity gap already parked to
+F1 (PARKING_LOT.md, 2026-08-15): the gate trusting a piece of external, unverified data
+absolutely. That one is the shipfile; this one is the hook payload. **Fixed at the root**
+(`shipgate.hooks._common.open_project_ledger`, see `ProjectRootUnresolvableError`'s
+docstring), not bolted onto this one call site — every place a payload field resolves a
+filesystem path was enumerated (grep, every hit listed with its disposition) rather than
+patched from memory. This module's own `except ProjectRootUnresolvableError` clause,
+below, is the resulting stderr-loud, still-fail-open handling for *this* hook
+specifically — deliberately NOT routed through the P12 marker mechanism above, since that
+marker requires a resolvable `cwd` to write to (see that except clause's own comment).
 """
 
 from __future__ import annotations
@@ -129,6 +145,7 @@ from shipgate.shipfile import ShipfileSyntaxError, ShipfileValidationError, load
 from ._common import (
     DEFAULT_TRANSCRIPT_TIER,
     HookInputError,
+    ProjectRootUnresolvableError,
     ensure_session,
     ensure_utf8_streams,
     open_project_ledger,
@@ -311,6 +328,16 @@ def run(stdin_text: str | None = None) -> int:
                     sys.stdout.write(json.dumps({"decision": "block", "reason": evaluation.block_reason}))
                 elif evaluation.exhausted:
                     sys.stderr.write(f"shipgate Stop hook: {evaluation.release_reason}\n")
+        except ProjectRootUnresolvableError as exc:
+            # See _common.ProjectRootUnresolvableError's docstring. Deliberately NOT
+            # routed through _handle_ledger_unavailable/P12's marker escalation: that
+            # marker lives at <cwd>/.shipgate/gate_unavailable.json, and if cwd itself
+            # doesn't resolve to a real directory there is nowhere legitimate to write
+            # it -- doing so would repeat the exact bug this branch exists to stop.
+            # Fails open on the decision every time (the loop-breaker rule stands), but
+            # never silently: this is the one channel that's actually visible.
+            sys.stderr.write(f"shipgate Stop hook: {exc} — the gate did not run for this event, not blocking\n")
+            return 0
         except sqlite3.Error as exc:
             # Narrower than the generic catch below -- see the module docstring's P12
             # decision. The ledger itself is the thing that failed, so it cannot be used

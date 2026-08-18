@@ -37,6 +37,34 @@ class HookInputError(ValueError):
     entrypoint's `run()`."""
 
 
+class ProjectRootUnresolvableError(HookInputError):
+    """**Founder finding, this session: hooks trusted the payload's `cwd` absolutely.**
+    Reproduced live: a `cwd` that does not exist (or exists but isn't a directory) made
+    `open_project_ledger`'s old unconditional `mkdir(parents=True, exist_ok=True)`
+    silently create an entire new directory tree — anywhere on disk — and write a real
+    45,056-byte ledger there, while the real project got no `.shipgate/` at all. Both
+    `PreToolUse` and `Stop` exited 0 with empty stdout AND empty stderr — the gate was
+    completely absent and every observable signal said fine. Same trust-boundary class
+    as the shipfile-integrity gap already parked to F1 (PARKING_LOT.md, 2026-08-15): the
+    gate trusts an external, unverified piece of data absolutely. That one is the
+    shipfile; this one is the hook payload.
+
+    Raised the moment `Path(cwd)` is found not to already be a real directory, before a
+    single filesystem write is attempted. A hook must never create a project root that
+    doesn't already exist — an unresolvable `cwd` is a refusal to proceed, not an
+    invitation to invent one. Every caller still fails OPEN on the decision (the
+    loop-breaker rule stands, exit 0, the stop/tool-call itself is never blocked by
+    this), but never SILENTLY: see each entrypoint's `run()` for the stderr line this
+    produces. `shipgate/hooks/stop.py`'s P12 `gate_unavailable.json` escalation
+    mechanism does NOT apply to this error — that marker lives at
+    `<cwd>/.shipgate/gate_unavailable.json`, and if `cwd` itself doesn't resolve there is
+    structurally nowhere legitimate to write it without repeating the exact bug this
+    class exists to stop. Named, accepted residual gap, the same shape as P12's own
+    "if `.shipgate/` itself is locked down" gap: this failure is loud on stderr every
+    single time, with no durable escalation counter, because there is no safe place to
+    keep one."""
+
+
 def read_hook_input(stdin_text: str | None) -> dict[str, Any]:
     """Parse the hook's stdin JSON. `stdin_text=None` reads real stdin (production);
     tests pass a literal string so no subprocess/stdin plumbing is needed to exercise
@@ -98,10 +126,25 @@ def open_project_ledger(cwd: str) -> LedgerWriter:
     isn't an ingest of some external corpus; it *is* the corpus root, trivially, of
     itself. This function never references `shipgate.ledger.paths.DEFAULT_CORPUS_ROOT`
     or `~/.claude/projects` in any way — the dogfood corpus is not merely convention-
-    protected here, it is unreachable from this code path by construction."""
-    db_path = Path(cwd) / ".shipgate" / "ledger.db"
+    protected here, it is unreachable from this code path by construction.
+
+    **Root-cause fix, this session: refuses to create `cwd` itself.** `.shipgate/` is
+    created under `cwd` (expected — that's this project's own state directory, not the
+    project root), but `cwd` must already exist as a real directory *before* that
+    happens. The old code's `mkdir(parents=True, exist_ok=True)` made no such
+    distinction — given an unresolvable `cwd` it happily built out the whole missing
+    tree from wherever `cwd` started, anywhere on disk, and wrote a real ledger there.
+    See `ProjectRootUnresolvableError`'s docstring for the full reproduction and
+    reasoning."""
+    root = Path(cwd)
+    if not root.is_dir():
+        raise ProjectRootUnresolvableError(
+            f"hook payload cwd {cwd!r} does not exist (or is not a directory) — refusing to "
+            "create a project root ShipGate did not find"
+        )
+    db_path = root / ".shipgate" / "ledger.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    return LedgerWriter(db_path, corpus_root=Path(cwd))
+    return LedgerWriter(db_path, corpus_root=root)
 
 
 def ensure_session(writer: LedgerWriter, *, session_id: str, cwd: str) -> None:
@@ -124,6 +167,7 @@ def ensure_session(writer: LedgerWriter, *, session_id: str, cwd: str) -> None:
 __all__ = [
     "DEFAULT_TRANSCRIPT_TIER",
     "HookInputError",
+    "ProjectRootUnresolvableError",
     "ensure_session",
     "ensure_utf8_streams",
     "open_project_ledger",

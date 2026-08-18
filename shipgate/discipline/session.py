@@ -42,8 +42,22 @@ def utc_now_iso() -> str:
 
 
 class NoSessionRecordedError(RuntimeError):
-    """`.shipgate/ledger.db` has no `sessions` row yet — no ShipGate hook has fired for
-    this project. A declaration cannot be attributed to a session that doesn't exist."""
+    """`.shipgate/ledger.db` has no `sessions` row yet. A declaration cannot be
+    attributed to a session that doesn't exist.
+
+    **Requirement (c), founder finding this session: this message used to assert more
+    than this code actually knows.** It read as "no hook has fired yet" — true for a
+    genuinely fresh project, but also the exact same rendering a project would get if
+    hooks HAD been firing repeatedly and refusing every time because Claude Code handed
+    them a `cwd` that didn't resolve to this directory
+    (`shipgate.hooks._common.ProjectRootUnresolvableError`). That failure is loud on
+    stderr at the moment it happens (see that error's docstring), but by construction —
+    see requirement (a) — leaves no durable trace anywhere near `project_root`, because
+    if `cwd` didn't resolve, ShipGate structurally never learned where `project_root`
+    even was. There is no ledger row, no marker file, nothing this function can read
+    later to tell the two cases apart. Rather than let the message quietly claim
+    certainty it doesn't have, it now names both possibilities and says what to check
+    for the second one — an honest "I don't know which" beats a confident guess."""
 
 
 def open_project_ledger(project_root: Path) -> LedgerWriter:
@@ -63,9 +77,14 @@ def current_session_id(writer: LedgerWriter, project_root: Path) -> str:
     ).fetchone()
     if row is None:
         raise NoSessionRecordedError(
-            f"no ShipGate session has been recorded yet for {project_root} — has a Claude "
-            "Code hook fired at least once this session? (shipgate init wires up PreToolUse/"
-            "PostToolUse/Stop; the first tool call after that should create one)"
+            f"no ShipGate session has been recorded yet for {project_root}. Two possible "
+            "reasons, and this code cannot tell you which: (1) no Claude Code hook has fired "
+            "here yet (shipgate init wires up PreToolUse/PostToolUse/Stop; the first tool call "
+            "after that should create one), or (2) hooks HAVE been firing but were refused "
+            "because the cwd Claude Code handed them didn't resolve to this directory — check "
+            "recent Claude Code hook stderr output for 'the gate did not run for this event', "
+            "and confirm this is the same directory your Claude Code session is actually "
+            "running in."
         )
     return row[0]
 

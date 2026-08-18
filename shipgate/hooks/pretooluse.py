@@ -16,6 +16,7 @@ import sys
 from ._common import (
     DEFAULT_TRANSCRIPT_TIER,
     HookInputError,
+    ProjectRootUnresolvableError,
     ensure_session,
     ensure_utf8_streams,
     open_project_ledger,
@@ -54,6 +55,13 @@ def run(stdin_text: str | None = None) -> int:
                 timestamp=utc_now_iso(),
                 raw_payload=payload,
             )
+    except ProjectRootUnresolvableError as exc:
+        # See _common.ProjectRootUnresolvableError's docstring — a hook must never
+        # create a project root it didn't find. Fails open on the decision (this is an
+        # observational hook, it never blocked anyway), but loudly: silence here is
+        # exactly the bug this branch exists to stop being possible.
+        sys.stderr.write(f"shipgate PreToolUse hook: {exc} — the gate did not run for this event, not blocking\n")
+        return 0
     except Exception as exc:  # noqa: BLE001 — deliberate fail-open boundary, see package docstring
         sys.stderr.write(f"shipgate PreToolUse hook: internal error (non-blocking): {exc}\n")
         return 0

@@ -33,9 +33,11 @@ version table at the first tagged release.
 
 **A note on evidence, since this repository has no CI history yet:** every check below
 described as "CI-enforced" or "on every build" is real code, wired into
-`.github/workflows/ci.yml`, and passes when run locally. But this repository has had no
-remote and CI has never executed, not once, against it (Gate C). Until the first real CI
-run, treat every such claim below as **disk-verified configuration**, not yet a
+`.github/workflows/ci.yml`, and passes when run locally. This repository now has a
+GitHub remote, and three real pushes have triggered CI — every one failed to start
+(zero jobs, no logs; account-level, unrelated to this file or `ci.yml` itself), so CI
+has still never actually executed a single step against it (Gate C). Until the first
+real CI run, treat every such claim below as **disk-verified configuration**, not yet a
 runtime-confirmed guarantee — the same disk-vs-runtime distinction this project applies
 to every other claim it makes, applied here to itself. This note is retired, and each
 claim below re-confirmed or corrected with evidence either way, the first time CI

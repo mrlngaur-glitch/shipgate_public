@@ -85,8 +85,9 @@ jobs:
           #      the healthy-chain wording check, and the --verify-defaults-on /
           #      --no-verify split); 1 removed (the old verify-is-opt-in test,
           #      superseded by the defaults-on pair)
-          # = 387 — the current count, closing a launch-blocking gap before this
-          #   project's own completion gate was allowed to certify itself.
+          # = 387 — a subtotal, closing a launch-blocking gap before this project's own
+          #   completion gate was allowed to certify itself. Superseded below — this is
+          #   no longer the current count.
           # + 5  tests/unit/test_hooks.py — the unresolvable-cwd Gate C blocker: a
           #      parametrized no-directory-created + non-empty-stderr regression across
           #      all three hooks (+3), the cwd-is-a-file-not-a-directory edge case (+1),

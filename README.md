@@ -4,13 +4,15 @@
 
 > **Status: pre-launch, Phase 3 substantially built.** The gate, the append-only ledger, the
 > hooks that write to it, and the CLI below (`init` / `status` / `report` / `doctor` /
-> `declare-task-class`) are real, tested (387 tests, shown running below), and this project
+> `declare-task-class`) are real, tested (393 tests, shown running below), and this project
 > gates its own repository with them — see `shipfile.yaml` at the repo root. What is **not**
-> true yet, stated plainly rather than implied: no public repository exists before this file
-> was written, CI has never executed once against this codebase (see `SECURITY.md`), there is
-> no PyPI package, no tagged release, no signed artifact, no `shipgate analyze` command (so no
-> dollar-cost figures), and no published latency benchmark. Install from source, as shown
-> below — that is the only way to run this today.
+> true yet, stated plainly rather than implied: this repository is private, not public; a
+> GitHub remote exists and three real pushes have triggered CI, but every one failed to
+> start (zero jobs, no logs — account-level, unrelated to this codebase, see `SECURITY.md`),
+> so CI has still never executed a single step against it; there is no PyPI package, no
+> tagged release, no signed artifact, no `shipgate analyze` command (so no dollar-cost
+> figures), and no published latency benchmark. Install from source, as shown below — that
+> is the only way to run this today.
 
 ShipGate converts rough plain-English requests into machine-checkable contracts, and refuses to
 accept an agent's work until its claims are verified against recorded evidence **by a party that
@@ -67,17 +69,36 @@ lint-imports        # core purity: no harness-specific imports in the gate/ledge
 ruff check .
 ```
 
-**Real output, this session, fresh venv (Windows; command as shown above):**
+**Real output, this session, fresh venv, a genuine re-materialization of the exact 82-file
+published set (not the working tree) in a clean temp directory — not hand-edited when the
+suite grew since the last paste (Windows; command as shown above):**
 
 ```
 $ .venv\Scripts\python.exe -m pytest -q
-........................................................................ [ 93%]
-...........................                                              [100%]
-387 passed in 41.41s
+........................................................................ [ 18%]
+........................................................................ [ 36%]
+........................................................................ [ 54%]
+........................................................................ [ 73%]
+........................................................................ [ 91%]
+.................................                                        [100%]
+393 passed in 39.97s
 
 $ .venv\Scripts\lint-imports.exe
+=============
+Import Linter
+=============
+
+
+---------
+Contracts
+---------
+
+Analyzed 41 files, 58 dependencies.
+-----------------------------------
+
 Core is harness-agnostic (no Claude Code imports in
 ledger/gate/verdicts/shipfile) KEPT
+
 Contracts: 1 kept, 0 broken.
 ```
 
@@ -163,7 +184,7 @@ compute, rather than inventing a figure or dropping the line silently.
 |---|---|---|---|
 | 1 | The Windows install (three `pip` commands above) works end-to-end | `runtime-verified` | Run in a genuinely fresh venv this session; `pytest`/`lint-imports` output pasted above, unedited |
 | 2 | The macOS/Linux install works the same way | `disk-verified` | Standard `venv`/`pip` syntax for those platforms; not independently run — no CI history yet, no macOS/Linux machine behind this repo |
-| 3 | 387 tests pass | `runtime-verified` | Pasted above, this session |
+| 3 | 393 tests pass | `runtime-verified` | Pasted above, this session |
 | 4 | `shipgate init` writes `shipfile.yaml` / `CLAUDE.md` / `.claude/settings.json`, never overwrites | `runtime-verified` | Real run, this session, pasted above; the never-overwrite behavior is separately tested (`tests/`) |
 | 5 | The hooks write real ledger rows via the same entrypoints Claude Code invokes | `runtime-verified` | Real subprocess run of all three hook modules this session, JSON on stdin, feeding the `status`/`report` output above |
 | 6 | `shipgate report` renders a verdict per claim, a blast-radius line, a token line, and a self-verifying ledger receipt | `runtime-verified` | Pasted above, unedited, this session |
@@ -179,7 +200,7 @@ compute, rather than inventing a figure or dropping the line silently.
 | Path | What it is |
 |---|---|
 | `shipgate/` | The core package — ledger, gate, verdict taxonomy, checkers, hooks, CLI |
-| `tests/` | 387 tests (unit + integration) — the real evidence behind every `runtime-verified` row above |
+| `tests/` | 393 tests (unit + integration) — the real evidence behind every `runtime-verified` row above |
 | `reporters/` | Per-test-runner reporters (`pytest` today; the vacuous-pass detection `tests_pass` relies on) |
 | `docs/verdicts_explainer.md` | The 7-class verdict taxonomy, plain-language, frozen since Gate A |
 | `docs/shipfile_worked_example.yaml` (+ `.md`) | A fuller worked `shipfile.yaml` than `shipgate init` generates |

@@ -62,7 +62,21 @@ class ProjectRootUnresolvableError(HookInputError):
     class exists to stop. Named, accepted residual gap, the same shape as P12's own
     "if `.shipgate/` itself is locked down" gap: this failure is loud on stderr every
     single time, with no durable escalation counter, because there is no safe place to
-    keep one."""
+    keep one.
+
+    **Named residual, confirmed by the founder's own independent edge-case sweep, not
+    fixed on purpose:** `Path(cwd).is_dir()` only catches `cwd` not resolving at all. A
+    `cwd` that resolves to a REAL directory that just isn't the intended project (e.g. a
+    misconfigured but otherwise valid path) is indistinguishable from a legitimate
+    project root by anything this function can check — `.shipgate/` gets created there,
+    same as it would for the actual intended project. This is not the bug this class
+    exists to stop (nothing is created that didn't already exist; no directory tree is
+    invented), and there is no way to verify "is this the RIGHT directory" without a
+    canonical answer to compare against, which nothing in a hook payload provides.
+    `shipgate.discipline.session.NoSessionRecordedError`'s corrected message already
+    covers exactly this case — "confirm this is the same directory your Claude Code
+    session is actually running in" — so the residual is named and surfaced, not
+    silently unhandled."""
 
 
 def read_hook_input(stdin_text: str | None) -> dict[str, Any]:

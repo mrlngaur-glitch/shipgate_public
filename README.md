@@ -25,8 +25,8 @@ Requires Python 3.12. There is no package on PyPI yet — install from a clone.
 **Windows (PowerShell) — runtime-verified this session, output below:**
 
 ```powershell
-git clone <this-repo-url>
-cd shipgate
+git clone https://github.com/mrlngaur-glitch/shipgate_public.git
+cd shipgate_public
 py -3.12 -m venv .venv
 .venv\Scripts\python.exe -m pip install --upgrade pip
 .venv\Scripts\python.exe -m pip install --require-hashes -r requirements.lock
@@ -40,8 +40,8 @@ runner in CI and no macOS dev machine behind this repository today. If the macOS
 that is new information — say so, don't assume it works because the commands look right:**
 
 ```bash
-git clone <this-repo-url>
-cd shipgate
+git clone https://github.com/mrlngaur-glitch/shipgate_public.git
+cd shipgate_public
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
@@ -184,7 +184,7 @@ compute, rather than inventing a figure or dropping the line silently.
 | # | Claim | Evidence class | Basis |
 |---|---|---|---|
 | 1 | The Windows install (three `pip` commands above) works end-to-end | `runtime-verified` | Run in a genuinely fresh venv this session; `pytest`/`lint-imports` output pasted above, unedited |
-| 2 | The macOS/Linux install works the same way | `runtime-verified` (Linux, via CI) / `disk-verified` (macOS) | Linux: CI's first real run ([run 32182623079](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32182623079)) executed these exact three install steps (see the paragraph above) on a real Ubuntu runner, before the suite ran, and they succeeded. macOS: still not independently run — no macOS runner in this project's CI and no macOS dev machine behind this repo |
+| 2 | The macOS/Linux install works the same way — narrowly true for the three `pip` lines only, not for `git clone` / `python3.12 -m venv .venv` / `source .venv/bin/activate` | `runtime-verified` (Linux, the three `pip` lines) / not run anywhere (Linux, the other two lines) / `disk-verified` (macOS, the whole block) | CI's first real run ([run 32182623079](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32182623079)) runs `actions/checkout` (not `git clone`) and `actions/setup-python` (not `python3.12 -m venv .venv`, and no `source activate`), then this block's three `pip` commands — so only those three are CI-verified on Linux. Fair to this project's own other work: `ci.yml:158`'s audit step does run `python -m venv "$RUNNER_TEMP/auditenv"` on this same Ubuntu runner, so the `venv` *module* is demonstrably not broken on CI's Python; what's untested is the `python3.12` binary name on a stock Ubuntu (`ensurepip` ships separately as the `python3.12-venv` package there — a real, plausible failure, not a pedantic one) and the activation line. macOS: nothing in this block has run anywhere |
 | 3 | Tests pass — **397, Windows, local** (this session) and **396 passed / 1 skipped, Linux, CI** (its first real run) — two different, both real numbers; not averaged, not one presented as the other | `runtime-verified` (both) | Windows: pasted above, this session. Linux/CI: [run 32182623079](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32182623079) — 397 collected (minimum 393), 396 passed, 1 skipped; the skip is `tests/integration/test_hooks_e2e.py`'s Windows-only `icacls` ACL test (`skipif(os.name != "nt")`) — an honest platform skip, not a vacuous pass |
 | 4 | `shipgate init` writes `shipfile.yaml` / `CLAUDE.md` / `.claude/settings.json`, never overwrites | `runtime-verified` | Real run, this session, pasted above; the never-overwrite behavior is separately tested (`tests/`) |
 | 5 | The hooks write real ledger rows via the same entrypoints Claude Code invokes | `runtime-verified` | Real subprocess run of all three hook modules this session, JSON on stdin, feeding the `status`/`report` output above |

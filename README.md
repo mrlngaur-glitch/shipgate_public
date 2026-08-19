@@ -4,15 +4,17 @@
 
 > **Status: pre-launch, Phase 3 substantially built.** The gate, the append-only ledger, the
 > hooks that write to it, and the CLI below (`init` / `status` / `report` / `doctor` /
-> `declare-task-class`) are real, tested (397 tests, Windows, local, shown running below; CI's
-> first real run — Linux — collected the same 397, 396 passed and 1 skipped, see the table
-> below), and this project gates its own repository with them — see `shipfile.yaml` at the
-> repo root. **This repository is now public, and CI has run for the first time and passed**
-> — see the evidence table below for exactly what that run did and didn't prove. What is
-> **not** true yet, stated plainly rather than implied: there is no PyPI package, no tagged
-> release, no signed artifact, no `shipgate analyze` command (so no dollar-cost figures), and
-> no published latency benchmark. Install from source, as shown below — that is the only way
-> to run this today.
+> `declare-task-class` / `analyze`) are real, tested (425 tests, Windows, local, this commit,
+> shown running below; CI's own last real run — Linux, an earlier commit before this round's
+> `analyze` fixes — collected 397, 396 passed and 1 skipped, see the table below for exactly
+> what that run covered), and this project gates its own repository with them — see
+> `shipfile.yaml` at the repo root. **This repository is now public, and CI has run for the
+> first time and passed** — see the evidence table below for exactly what that run did and
+> didn't prove. What is **not** true yet, stated plainly rather than implied: there is no PyPI
+> package, no tagged release, no signed artifact, no dollar-cost figure anywhere in this
+> project (no price tables exist — `shipgate analyze` is a real, built command, but a
+> read-only cross-project ledger aggregator, not a cost calculator), and no published latency
+> benchmark. Install from source, as shown below — that is the only way to run this today.
 
 ShipGate converts rough plain-English requests into machine-checkable contracts, and refuses to
 accept an agent's work until its claims are verified against recorded evidence **by a party that
@@ -76,13 +78,13 @@ not hand-edited, when the suite grew since the last paste (Windows; command as s
 
 ```
 $ .venv\Scripts\python.exe -m pytest -q
-........................................................................ [ 18%]
-........................................................................ [ 36%]
-........................................................................ [ 54%]
-........................................................................ [ 72%]
-........................................................................ [ 90%]
-.....................................                                    [100%]
-397 passed in 51.95s
+........................................................................ [ 16%]
+........................................................................ [ 33%]
+........................................................................ [ 50%]
+........................................................................ [ 67%]
+........................................................................ [ 84%]
+.................................................................        [100%]
+425 passed in 48.96s
 
 $ .venv\Scripts\lint-imports.exe
 =============
@@ -94,7 +96,7 @@ Import Linter
 Contracts
 ---------
 
-Analyzed 41 files, 58 dependencies.
+Analyzed 43 files, 65 dependencies.
 -----------------------------------
 
 Core is harness-agnostic (no Claude Code imports in
@@ -158,10 +160,10 @@ $ shipgate report --project-dir .
 
 Blast radius: 0 high-risk change(s) self-declared this session (self-declared
 only — ShipGate cannot detect an undeclared one).
-Tokens this session: 0 in / 0 out / 0 cache-read (dollar cost requires shipgate
-analyze's price tables, not yet built).
+Tokens this session: 0 in / 0 out / 0 cache-read (no price table exists
+anywhere in this project — no command computes a dollar cost).
 
-Ledger receipt (verdicts): #1 (029062d5f84e…) through #1 (029062d5f84e…) — this
+Ledger receipt (verdicts): #1 (8ff41cddfa0f…) through #1 (8ff41cddfa0f…) — this
 project's entire claim history.
 --verify: VERIFIED — entire ledger hash chain (events, claims, verdicts)
 intact; the embedded verdicts range matches the ledger exactly, unchanged
@@ -175,9 +177,10 @@ in `docs/verdicts_explainer.md`).
 
 The token line above reads zero because this demo drove the hooks directly rather than through a
 real, billed Claude Code session — a real session's real token counts populate that line the same
-way. The dollar-cost gap next to it is real, not a placeholder: `shipgate analyze`'s price tables
-don't exist yet, so the report shows a true number (tokens) and says plainly what it can't yet
-compute, rather than inventing a figure or dropping the line silently.
+way. The "no price table" clause next to it is real, not a placeholder: no price table exists
+anywhere in this codebase and no command computes a dollar cost — the report states that plainly
+next to the one real number it does have (tokens), rather than inventing a figure or dropping the
+line silently.
 
 ## What's built, what isn't — every claim above, one evidence class each
 
@@ -185,7 +188,7 @@ compute, rather than inventing a figure or dropping the line silently.
 |---|---|---|---|
 | 1 | The Windows install (three `pip` commands above) works end-to-end | `runtime-verified` | Run in a genuinely fresh venv this session; `pytest`/`lint-imports` output pasted above, unedited |
 | 2 | The macOS/Linux install works the same way — narrowly true for the three `pip` lines only, not for `git clone` / `python3.12 -m venv .venv` / `source .venv/bin/activate` | `runtime-verified` (Linux, the three `pip` lines) / not run anywhere (Linux, the other two lines) / `disk-verified` (macOS, the whole block) | CI's first real run ([run 32182623079](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32182623079)) runs `actions/checkout` (not `git clone`) and `actions/setup-python` (not `python3.12 -m venv .venv`, and no `source activate`), then this block's three `pip` commands — so only those three are CI-verified on Linux. Fair to this project's own other work: `ci.yml:158`'s audit step does run `python -m venv "$RUNNER_TEMP/auditenv"` on this same Ubuntu runner, so the `venv` *module* is demonstrably not broken on CI's Python; what's untested is the `python3.12` binary name on a stock Ubuntu (`ensurepip` ships separately as the `python3.12-venv` package there — a real, plausible failure, not a pedantic one) and the activation line. macOS: nothing in this block has run anywhere |
-| 3 | Tests pass — **397, Windows, local** (this session) and **396 passed / 1 skipped, Linux, CI** (its first real run) — two different, both real numbers; not averaged, not one presented as the other | `runtime-verified` (both) | Windows: pasted above, this session. Linux/CI: [run 32182623079](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32182623079) — 397 collected (minimum 393), 396 passed, 1 skipped; the skip is `tests/integration/test_hooks_e2e.py`'s Windows-only `icacls` ACL test (`skipif(os.name != "nt")`) — an honest platform skip, not a vacuous pass |
+| 3 | Tests pass — **425, Windows, local, this commit** and **396 passed / 1 skipped of 397 collected, Linux, CI, its first real run, an earlier commit** — two different numbers for two different reasons (platform AND commit), never averaged, never one presented as the other | `runtime-verified` (both) | Windows: pasted above, this session, this commit. Linux/CI: [run 32182623079](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32182623079) — 397 collected (minimum 393 at that commit), 396 passed, 1 skipped; the skip is `tests/integration/test_hooks_e2e.py`'s Windows-only `icacls` ACL test (`skipif(os.name != "nt")`) — an honest platform skip, not a vacuous pass. CI has not re-run since this round's `analyze` fixes (397 -> 425); the 28 new tests are Windows-local-verified only until it does |
 | 4 | `shipgate init` writes `shipfile.yaml` / `CLAUDE.md` / `.claude/settings.json`, never overwrites | `runtime-verified` | Real run, this session, pasted above; the never-overwrite behavior is separately tested (`tests/`) |
 | 5 | The hooks write real ledger rows via the same entrypoints Claude Code invokes | `runtime-verified` | Real subprocess run of all three hook modules this session, JSON on stdin, feeding the `status`/`report` output above |
 | 6 | `shipgate report` renders a verdict per claim, a blast-radius line, a token line, and a self-verifying ledger receipt | `runtime-verified` | Pasted above, unedited, this session |
@@ -193,7 +196,7 @@ compute, rather than inventing a figure or dropping the line silently.
 | 8 | Dependencies are pinned and hash-verified for the dev/CI install | `runtime-verified` (Windows, local; Linux, CI) / `disk-verified` (other hash-covered platforms) | `requirements.lock`'s own header states exactly which platforms are hash-covered vs. tested; CI's first real run ([run 32182623079](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32182623079)) installed with `--require-hashes` on Linux and it succeeded, before the suite ran; `SECURITY.md` states the same split for the published-package install path |
 | 9 | This project gates its own repository under the rules it ships | `disk-verified` | `shipfile.yaml` at the repo root, wired live into this repo's own (git-ignored) `.claude/settings.json` |
 | 10 | A published, CI-measured <10ms p99 hook-latency benchmark exists | **Does not exist** | Named as a gap, not implied or omitted |
-| 11 | A dollar-cost figure appears on the Ship Report | **Does not exist** | `shipgate analyze`'s price tables aren't built; the report states this inline (see above) rather than inventing a number |
+| 11 | A dollar-cost figure appears on the Ship Report | **Does not exist** | No price tables exist anywhere in this codebase — `shipgate analyze` is now built (a read-only cross-project ledger aggregator over this project's own ledger files) but does not compute cost and isn't planned to; the report states the gap inline (see above) rather than inventing a number |
 | 12 | This project has run in CI, has a tagged release, or is on PyPI | **Does not exist yet** | Pre-launch; install from source only, as shown above |
 
 ## Repository map
@@ -201,7 +204,7 @@ compute, rather than inventing a figure or dropping the line silently.
 | Path | What it is |
 |---|---|
 | `shipgate/` | The core package — ledger, gate, verdict taxonomy, checkers, hooks, CLI |
-| `tests/` | 397 tests (unit + integration) — the real evidence behind every `runtime-verified` row above. 397 pass / 0 skipped locally on Windows; 396 pass / 1 skipped in CI on Linux (the Windows-only `icacls` test) |
+| `tests/` | 425 tests (unit + integration) — the real evidence behind every `runtime-verified` row above. 425 pass / 0 skipped locally on Windows, this commit; CI's own last real run (an earlier commit, before this round's `analyze` fixes) saw 396 pass / 1 skipped of 397 collected on Linux (the Windows-only `icacls` test) |
 | `reporters/` | Per-test-runner reporters (`pytest` today; the vacuous-pass detection `tests_pass` relies on) |
 | `docs/verdicts_explainer.md` | The 7-class verdict taxonomy, plain-language, frozen since Gate A |
 | `docs/shipfile_worked_example.yaml` (+ `.md`) | A fuller worked `shipfile.yaml` than `shipgate init` generates |

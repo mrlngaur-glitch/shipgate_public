@@ -1,7 +1,16 @@
 """ShipGate CLI entrypoint.
 
 Commands land per the phase plan:
-  analyze             -> Phase 1   report §8.1 Week 1 (not yet built)
+  analyze             -> founder-authorized scope addition, built this session (see
+                         PHASE_PLAN.md's decisions log). NOT report §8.1 Week 1's
+                         original ingest/dollar-cost `analyze` -- that one is still not
+                         built (no price tables exist; see shipgate.report.data's own
+                         module docstring). This is a read-only cross-project ledger
+                         aggregator: shipgate analyze --roots <dir> globs
+                         <dir>/*/.shipgate/ledger.db, hash-chain-verifies each one, and
+                         reports per-project and cross-project statistics. Never writes
+                         to any project ledger; see shipgate.analyze's module docstring
+                         for the five hard constraints this was built against.
   init                -> Phase 3   report §8.1 Week 3 (built, Session 009)
   declare-task-class  -> Phase 3   Gate B condition 5's wiring; a thin wrapper around the already-tested
                          `shipgate.gate.blast_radius.record_high_risk_change`. Not a
@@ -26,6 +35,8 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from shipgate.analyze import analyze as run_analyze
+from shipgate.analyze import render_analyze
 from shipgate.discipline import (
     InitResult,
     NoSessionRecordedError,
@@ -275,6 +286,38 @@ def doctor(
         raise typer.Exit(code=1)
 
     typer.echo(f"Clean — {len(report.checked_condition_ids)} reference(s) checked, none stale.")
+
+
+@app.command()
+def analyze(
+    roots: list[Path] = typer.Option(
+        ...,
+        "--roots",
+        help=(
+            "Directory whose immediate subdirectories are scanned for */.shipgate/ledger.db "
+            "(repeatable -- pass --roots more than once to search multiple directories)."
+        ),
+    ),
+) -> None:
+    """Read-only cross-project ledger aggregation and statistics — see
+    shipgate.analyze's module docstring for the full design.
+
+    Never opens any project ledger for write, never creates .shipgate/ anywhere, no
+    central database — every project's ledger is read independently, hash-chain-
+    verified, and stays exactly as it was found. A tampered or unreadable ledger is
+    reported by name, never silently skipped or folded into the totals.
+
+    Exit codes: 0 = at least one ledger found, read, and verified (its own gate-not-
+    green statistics are informational content, not a command failure). 1 = one or
+    more ledgers found were tampered or unreadable. 3 = nothing found at all under any
+    given --roots value — the vacuous-pass rule, applied to this command too."""
+    result = run_analyze([r.resolve() for r in roots])
+    render_analyze(result, Console())
+
+    if result.is_vacuous:
+        raise typer.Exit(code=3)
+    if result.failures:
+        raise typer.Exit(code=1)
 
 
 def _resolve_session(project_dir: Path, writer, session: str | None) -> str:

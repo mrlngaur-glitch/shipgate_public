@@ -104,8 +104,26 @@ jobs:
           # + 1  tests/unit/test_verdicts.py — the ALL_VERDICTS-out-of-sync-with-the-
           #      enum regression: patches a real 8th Verdict member into an isolated
           #      copy of taxonomy.py and asserts the import itself refuses it
-          # = 397 — the current count
-          MIN_TESTS: 397
+          # = 397 — a subtotal. Superseded below — this is no longer the current count.
+          # + 16 tests/unit/test_analyze.py — the new `shipgate analyze` command's six
+          #      hard constraints (read-only, every ledger verified, the vacuous-pass
+          #      rule, never printing raw payloads, no network, dogfood-corpus
+          #      out-of-scope), plus discovery/aggregation. (Corrected count: this line
+          #      originally said 21, misattributing 5 of test_cli_analyze.py's own
+          #      tests to this file — the arithmetic below never actually summed to the
+          #      MIN_TESTS value it produced. 16 + 5 = 21 is the real split; found
+          #      re-deriving this comment for the README pass, not by the founder.)
+          # + 5  tests/unit/test_cli_analyze.py — the CLI wrapper's exit codes and
+          #      repeatable --roots wiring
+          # = 418 — a subtotal. Superseded below — this is no longer the current count.
+          # + 7  tests/unit/test_analyze.py — Findings 1 and 2 (founder review, real-
+          #      data verification against a real ledger): the activity window and
+          #      token totals were hand-seeded with columns production never
+          #      populates, hiding both defects; one new test drives the real
+          #      shipgate.hooks.pretooluse subprocess to build its fixture, the rest
+          #      cover the corrected TokenMetric/AggregatedTokenMetric mechanism
+          # = 425 — the current count
+          MIN_TESTS: 425
 
       - name: Tests
         run: python -m pytest

@@ -178,7 +178,7 @@ def _token_line(data: ShipReportData) -> Text:
     return Text(
         f"Tokens this session: {data.tokens_input:,} in / {data.tokens_output:,} out / "
         f"{data.tokens_cache_read:,} cache-read "
-        "(dollar cost requires shipgate analyze's price tables, not yet built)."
+        "(no price table exists anywhere in this project — no command computes a dollar cost)."
     )
 
 

@@ -96,8 +96,16 @@ jobs:
           # + 1  tests/unit/test_cli_declare_task_class.py — requirement (c): the
           #      NoSessionRecordedError message names the unresolvable-cwd possibility
           #      honestly instead of asserting hooks simply haven't fired yet
-          # = 393 — the current count
-          MIN_TESTS: 393
+          # = 393 — a subtotal. Superseded below — this is no longer the current count.
+          # + 3  tests/integration/test_hooks_e2e.py — the stdin-decode fix (P24): two
+          #      real cp932/ascii-host regressions proving the Stop hook still blocks
+          #      on genuine non-ASCII payload bytes, plus a genuinely-malformed-UTF-8
+          #      case sent on real stdin, asserting a refusal, not a crash
+          # + 1  tests/unit/test_verdicts.py — the ALL_VERDICTS-out-of-sync-with-the-
+          #      enum regression: patches a real 8th Verdict member into an isolated
+          #      copy of taxonomy.py and asserts the import itself refuses it
+          # = 397 — the current count
+          MIN_TESTS: 397
 
       - name: Tests
         run: python -m pytest

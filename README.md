@@ -4,15 +4,15 @@
 
 > **Status: pre-launch, Phase 3 substantially built.** The gate, the append-only ledger, the
 > hooks that write to it, and the CLI below (`init` / `status` / `report` / `doctor` /
-> `declare-task-class`) are real, tested (393 tests, shown running below), and this project
-> gates its own repository with them — see `shipfile.yaml` at the repo root. What is **not**
-> true yet, stated plainly rather than implied: this repository is private, not public; a
-> GitHub remote exists and three real pushes have triggered CI, but every one failed to
-> start (zero jobs, no logs — account-level, unrelated to this codebase, see `SECURITY.md`),
-> so CI has still never executed a single step against it; there is no PyPI package, no
-> tagged release, no signed artifact, no `shipgate analyze` command (so no dollar-cost
-> figures), and no published latency benchmark. Install from source, as shown below — that
-> is the only way to run this today.
+> `declare-task-class`) are real, tested (397 tests, Windows, local, shown running below; CI's
+> first real run — Linux — collected the same 397, 396 passed and 1 skipped, see the table
+> below), and this project gates its own repository with them — see `shipfile.yaml` at the
+> repo root. **This repository is now public, and CI has run for the first time and passed**
+> — see the evidence table below for exactly what that run did and didn't prove. What is
+> **not** true yet, stated plainly rather than implied: there is no PyPI package, no tagged
+> release, no signed artifact, no `shipgate analyze` command (so no dollar-cost figures), and
+> no published latency benchmark. Install from source, as shown below — that is the only way
+> to run this today.
 
 ShipGate converts rough plain-English requests into machine-checkable contracts, and refuses to
 accept an agent's work until its claims are verified against recorded evidence **by a party that
@@ -33,10 +33,11 @@ py -3.12 -m venv .venv
 .venv\Scripts\python.exe -m pip install -e . --no-deps
 ```
 
-**macOS / Linux (bash) — the standard equivalent of the same steps. Not independently run on
-either OS by this project: there is no CI history yet (`SECURITY.md`) and no macOS/Linux dev
-machine behind this repository today. If one of these breaks, that is new information — say so,
-don't assume it works because the commands look right:**
+**macOS / Linux (bash) — the standard equivalent of the same steps. Linux: independently run for
+the first time by CI's first real run ([run 32182623079](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32182623079))
+— see the evidence table below. macOS: still not independently run by this project — no macOS
+runner in CI and no macOS dev machine behind this repository today. If the macOS form breaks,
+that is new information — say so, don't assume it works because the commands look right:**
 
 ```bash
 git clone <this-repo-url>
@@ -69,19 +70,19 @@ lint-imports        # core purity: no harness-specific imports in the gate/ledge
 ruff check .
 ```
 
-**Real output, this session, fresh venv, a genuine re-materialization of the exact 82-file
-published set (not the working tree) in a clean temp directory — not hand-edited when the
-suite grew since the last paste (Windows; command as shown above):**
+**Real output, this session, fresh venv, a clean `git archive` of this repository's own
+committed source (not the working tree) extracted fresh into a new temp directory — re-run,
+not hand-edited, when the suite grew since the last paste (Windows; command as shown above):**
 
 ```
 $ .venv\Scripts\python.exe -m pytest -q
 ........................................................................ [ 18%]
 ........................................................................ [ 36%]
 ........................................................................ [ 54%]
-........................................................................ [ 73%]
-........................................................................ [ 91%]
-.................................                                        [100%]
-393 passed in 39.97s
+........................................................................ [ 72%]
+........................................................................ [ 90%]
+.....................................                                    [100%]
+397 passed in 51.95s
 
 $ .venv\Scripts\lint-imports.exe
 =============
@@ -183,13 +184,13 @@ compute, rather than inventing a figure or dropping the line silently.
 | # | Claim | Evidence class | Basis |
 |---|---|---|---|
 | 1 | The Windows install (three `pip` commands above) works end-to-end | `runtime-verified` | Run in a genuinely fresh venv this session; `pytest`/`lint-imports` output pasted above, unedited |
-| 2 | The macOS/Linux install works the same way | `disk-verified` | Standard `venv`/`pip` syntax for those platforms; not independently run — no CI history yet, no macOS/Linux machine behind this repo |
-| 3 | 393 tests pass | `runtime-verified` | Pasted above, this session |
+| 2 | The macOS/Linux install works the same way | `runtime-verified` (Linux, via CI) / `disk-verified` (macOS) | Linux: CI's first real run ([run 32182623079](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32182623079)) executed these exact three install steps (see the paragraph above) on a real Ubuntu runner, before the suite ran, and they succeeded. macOS: still not independently run — no macOS runner in this project's CI and no macOS dev machine behind this repo |
+| 3 | Tests pass — **397, Windows, local** (this session) and **396 passed / 1 skipped, Linux, CI** (its first real run) — two different, both real numbers; not averaged, not one presented as the other | `runtime-verified` (both) | Windows: pasted above, this session. Linux/CI: [run 32182623079](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32182623079) — 397 collected (minimum 393), 396 passed, 1 skipped; the skip is `tests/integration/test_hooks_e2e.py`'s Windows-only `icacls` ACL test (`skipif(os.name != "nt")`) — an honest platform skip, not a vacuous pass |
 | 4 | `shipgate init` writes `shipfile.yaml` / `CLAUDE.md` / `.claude/settings.json`, never overwrites | `runtime-verified` | Real run, this session, pasted above; the never-overwrite behavior is separately tested (`tests/`) |
 | 5 | The hooks write real ledger rows via the same entrypoints Claude Code invokes | `runtime-verified` | Real subprocess run of all three hook modules this session, JSON on stdin, feeding the `status`/`report` output above |
 | 6 | `shipgate report` renders a verdict per claim, a blast-radius line, a token line, and a self-verifying ledger receipt | `runtime-verified` | Pasted above, unedited, this session |
-| 7 | No hook makes a network call | `runtime-verified` locally / untested in CI | `tests/integration/test_hooks_e2e.py` passes locally; CI has never run — see `SECURITY.md` |
-| 8 | Dependencies are pinned and hash-verified for the dev/CI install | `runtime-verified` (Windows) / `disk-verified` (other hash-covered platforms) | `requirements.lock`'s own header states exactly which platforms are hash-covered vs. tested; `SECURITY.md` states the same split for the published-package install path |
+| 7 | No hook makes a network call | `runtime-verified`, Windows local **and** Linux CI | `tests/integration/test_hooks_e2e.py` passes locally on Windows; CI's first real run ([run 32182623079](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32182623079), Linux) executed the same test and passed. State plainly what that proves and no more: CI confirmed this one claim, end-to-end, on Linux — it did not additionally exercise the Windows-only `icacls` test, which CI itself honestly skips (see row 3) |
+| 8 | Dependencies are pinned and hash-verified for the dev/CI install | `runtime-verified` (Windows, local; Linux, CI) / `disk-verified` (other hash-covered platforms) | `requirements.lock`'s own header states exactly which platforms are hash-covered vs. tested; CI's first real run ([run 32182623079](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32182623079)) installed with `--require-hashes` on Linux and it succeeded, before the suite ran; `SECURITY.md` states the same split for the published-package install path |
 | 9 | This project gates its own repository under the rules it ships | `disk-verified` | `shipfile.yaml` at the repo root, wired live into this repo's own (git-ignored) `.claude/settings.json` |
 | 10 | A published, CI-measured <10ms p99 hook-latency benchmark exists | **Does not exist** | Named as a gap, not implied or omitted |
 | 11 | A dollar-cost figure appears on the Ship Report | **Does not exist** | `shipgate analyze`'s price tables aren't built; the report states this inline (see above) rather than inventing a number |
@@ -200,7 +201,7 @@ compute, rather than inventing a figure or dropping the line silently.
 | Path | What it is |
 |---|---|
 | `shipgate/` | The core package — ledger, gate, verdict taxonomy, checkers, hooks, CLI |
-| `tests/` | 393 tests (unit + integration) — the real evidence behind every `runtime-verified` row above |
+| `tests/` | 397 tests (unit + integration) — the real evidence behind every `runtime-verified` row above. 397 pass / 0 skipped locally on Windows; 396 pass / 1 skipped in CI on Linux (the Windows-only `icacls` test) |
 | `reporters/` | Per-test-runner reporters (`pytest` today; the vacuous-pass detection `tests_pass` relies on) |
 | `docs/verdicts_explainer.md` | The 7-class verdict taxonomy, plain-language, frozen since Gate A |
 | `docs/shipfile_worked_example.yaml` (+ `.md`) | A fuller worked `shipfile.yaml` than `shipgate init` generates |

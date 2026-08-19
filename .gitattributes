@@ -1,0 +1,27 @@
+# Every tracked file in this repo today is text (py/md/yaml/yml/toml/txt/lock/gitignore —
+# confirmed by `git ls-files`, no binaries tracked). Normalize all of it to LF on both
+# checkout and in the repo itself, on every platform, so a Windows dev checkout and CI's
+# Ubuntu runner never disagree on line endings.
+* text=auto eol=lf
+
+# --- Never-publish boundary -------------------------------------------------------
+# The control was real (this file's export-ignore list) with no enforcement behind it:
+# `git archive HEAD` with no path args shipped every path below until this line. Every
+# top-level path this repo tracks was enumerated and ruled on (see SESSION_LOG.md /
+# PHASE_PLAN.md P31 for the one-line reasoning per entry, and
+# tests/unit/test_archive_boundary.py for the executable proof). This file is itself
+# tracked and NOT export-ignored — the policy has to ship with the archive it governs,
+# or a fresh clone has no way to inherit it.
+#
+# Internal planning / financial / analyst-process documents — never shipped to a
+# stranger's clone:
+"Revenue forecast.txt" export-ignore
+final_ShipGate_Master_Report_v4_FINAL.md export-ignore
+CLAUDE.md export-ignore
+PHASE_PLAN.md export-ignore
+SESSION_LOG.md export-ignore
+PARKING_LOT.md export-ignore
+ANALYST_DISCIPLINE_CHARTER.md export-ignore
+Archive/ export-ignore
+docs/REPORT_REVIEW_2026-08-15.md export-ignore
+docs/analyst_briefs/ export-ignore

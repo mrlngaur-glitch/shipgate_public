@@ -122,8 +122,18 @@ jobs:
           #      populates, hiding both defects; one new test drives the real
           #      shipgate.hooks.pretooluse subprocess to build its fixture, the rest
           #      cover the corrected TokenMetric/AggregatedTokenMetric mechanism
-          # = 425 — the current count
-          MIN_TESTS: 425
+          # = 425 — a subtotal. Superseded below — this is no longer the current count.
+          # + 4  tests/unit/test_archive_boundary.py — the never-publish export-ignore
+          #      boundary (P31): two closed-world enumeration tests (a new top-level
+          #      or docs/ path with no publish/never-publish ruling fails loud), one
+          #      vacuous-pass guard on the archive command itself, one real
+          #      `git archive HEAD` invocation asserting zero never-publish members —
+          #      confirmed to actually go red by reintroducing the real bug this
+          #      session found (an unescaped space silently defeating a pattern) on a
+          #      throwaway branch, then discarding it; this floor rose from the fix,
+          #      not a padded count.
+          # = 429 — the current count
+          MIN_TESTS: 429
 
       - name: Tests
         run: python -m pytest

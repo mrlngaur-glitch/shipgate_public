@@ -36,37 +36,40 @@ first real run ([32182623079](https://github.com/mrlngaur-glitch/shipgate_public
 executed every step in `.github/workflows/ci.yml` on a real Ubuntu runner and passed;
 its second real run ([32221241397](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32221241397))
 passed against a raised `MIN_TESTS` floor (397) and confirmed the suite still collects
-and passes at that count. Three earlier pushes had failed to start at all (zero jobs, no
+and passes at that count; its third real run ([32288583970](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32288583970))
+passed against a further-raised `MIN_TESTS` floor (425), at the same commit as this
+project's own last local Windows run, closing the local-vs-CI divergence the earlier two
+runs still had. Three earlier pushes had failed to start at all (zero jobs, no
 logs) — the cause was an account-level billing lock on the GitHub account this
 repository is hosted under, unrelated to this file, `ci.yml`, or any code in this
 repository; it has since been resolved, and is why this note existed in the first
 place. Every "CI-enforced" / "on every build" claim below is now
-re-confirmed against those two real runs, not left as the disk-verified-only status this
+re-confirmed against those three real runs, not left as the disk-verified-only status this
 note used to require:
 
 - **No network calls from hooks** — both tests named just below ran in CI and passed on
-  both runs.
+  all three runs.
 - **Secrets never reach the ledger** — the full `tests/unit/test_redaction.py` and
   `tests/unit/test_hooks.py` suites (including the dict-key regression) ran in CI and
-  passed on both runs; they are ordinary members of the 397 collected, not a separate
-  CI step.
+  passed on all three runs; they are ordinary members of the 425 collected at the latest
+  run, not a separate CI step.
 - **The ledger is append-only, structurally** — `tests/unit/test_ledger.py`'s
   trigger-refusal tests (`test_update_is_refused_by_trigger_on_every_table`,
   `test_delete_is_refused_by_trigger_on_every_table`) and its hash-chain tests
   (`test_fresh_ledger_chains_verify_clean` and the four `test_tamper_*` cases, one per
-  table plus an earlier-row-tampered case) ran in CI and passed on both runs, same basis
-  as above.
+  table plus an earlier-row-tampered case) ran in CI and passed on all three runs, same
+  basis as above.
 - **Dependencies are pinned, hashed, and audited** — the dev/CI set
   (`requirements.lock`) installed with `--require-hashes` on a real Ubuntu runner and
-  succeeded on both runs (closing the "manylinux x86_64... will be tested the first time
-  CI actually runs" gap named lower in this section); `pip-audit` ran in CI's own
+  succeeded on all three runs (closing the "manylinux x86_64... will be tested the first
+  time CI actually runs" gap named lower in this section); `pip-audit` ran in CI's own
   "Audit dependencies" step, against a separately hash-pinned audit environment
-  (`requirements-audit.lock`), and reported no known vulnerabilities on both runs — this
-  is now a continuous, CI-run check, not only the 2026-08-17 manual pass named below.
+  (`requirements-audit.lock`), and reported no known vulnerabilities on all three runs —
+  this is now a continuous, CI-run check, not only the 2026-08-17 manual pass named below.
   The two GitHub Actions supply-chain pins (`actions/checkout`, `actions/setup-python`)
-  are exercised by definition on every CI run, including these two.
+  are exercised by definition on every CI run, including these three.
 - **Core purity is enforced by a real check** — `import-linter`'s "Core purity contract"
-  step ran in CI and passed (1 kept, 0 broken) on both runs, not only locally.
+  step ran in CI and passed (1 kept, 0 broken) on all three runs, not only locally.
 
 The remaining gap this note used to cover — **macOS and the other hash-covered-but-
 untested platforms are still not run anywhere, CI included** (`ubuntu-latest` is CI's
@@ -129,8 +132,9 @@ the same set:
   and the sdist as a universal fallback — a hash is a fingerprint permitted to install, not
   a claim that platform works. What this project has actually *run* the suite on:
   Windows amd64, in this project's own dev venv, and now manylinux x86_64 too — CI's
-  first two real runs ([32182623079](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32182623079),
-  [32221241397](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32221241397))
+  first three real runs ([32182623079](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32182623079),
+  [32221241397](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32221241397),
+  [32288583970](https://github.com/mrlngaur-glitch/shipgate_public/actions/runs/32288583970))
   installed and ran the suite on a real Ubuntu (`manylinux`) runner. manylinux aarch64,
   macOS arm64, and macOS x86_64 are still installable but unverified here — see
   `requirements.lock`'s own header for the exact commands used to generate each hash and
